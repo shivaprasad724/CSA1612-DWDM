@@ -1,0 +1,13 @@
+# Create student data
+names <- c("Siri", "Mahi", "Chiru")
+age <- c(23, 24, 25)
+marks <- c(88, 78, 25)
+
+# Create data frame
+df <- data.frame(names, age, marks)
+
+# Display data
+print(df)
+
+# Calculate quantiles of age
+print(quantile(df$age))
