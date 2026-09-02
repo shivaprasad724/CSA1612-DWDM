@@ -1,0 +1,17 @@
+# Read CSV file
+df <- read.csv("datafr.csv")
+
+# Select Age column
+A <- df$age
+
+# Calculate Mean
+Mean <- mean(A)
+
+# Calculate Standard Deviation
+Std <- sd(A)
+
+# Calculate Z-score
+Zscore <- (A - Mean) / Std
+
+# Display Z-score
+print(Zscore)
