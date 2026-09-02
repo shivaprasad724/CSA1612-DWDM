@@ -1,0 +1,15 @@
+
+# Create data
+a <- c(55, 67, 89, 80, 90)
+
+# Draw vertical bar plot
+barplot(a,
+        main = "Bar Plot",
+        xlab = "Students",
+        ylab = "Marks")
+
+# Draw horizontal bar plot
+barplot(a,
+        main = "Horizontal Bar Plot",
+        xlab = "Marks",
+        horiz = TRUE)
