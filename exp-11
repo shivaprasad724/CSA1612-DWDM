@@ -1,0 +1,14 @@
+# Create student data
+names <- c("Siri", "Mahi", "Chiru")
+age <- c(23, 24, 25)
+marks <- c(88, 78, 25)
+
+# Create data frame
+df <- data.frame(names, age, marks)
+
+# Calculate Mid-Range
+mid_range <- (min(df$age) + max(df$age)) / 2
+
+# Display result
+print(df)
+print(paste("Mid-Range of Age =", mid_range))
