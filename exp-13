@@ -1,0 +1,29 @@
+# Install once if required
+# install.packages("readxl")
+
+library(readxl)
+
+# Read Excel file
+test1 <- read.csv("datafr.csv")
+
+# Select Age column
+A <- test1$age
+
+# MEAN
+Mean <- mean(A, na.rm = TRUE)
+print(paste("Mean =", Mean))
+
+# MINIMUM
+Minimum <- min(A, na.rm = TRUE)
+print(paste("Minimum =", Minimum))
+
+# MAXIMUM
+Maximum <- max(A, na.rm = TRUE)
+print(paste("Maximum =", Maximum))
+
+# MIN-MAX NORMALIZATION
+MinMax <- (A - Minimum) / (Maximum - Minimum)
+
+# Display Min-Max values
+print("Min-Max Normalized Values:")
+print(MinMax)
