@@ -1,0 +1,760 @@
+# ============================================================
+# RETAIL BUSINESS INTELLIGENCE SYSTEM
+# Star Schema + OLAP + Classification + Clustering
+# Frequent Pattern Mining + Web Mining
+# ============================================================
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.svm import SVC
+from sklearn.cluster import KMeans
+from sklearn.metrics import (
+    accuracy_score, precision_score, recall_score, f1_score,
+    confusion_matrix
+)
+
+from mlxtend.frequent_patterns import apriori, association_rules
+
+
+# ============================================================
+# 1. CREATE SAMPLE RETAIL DATA
+# ============================================================
+
+np.random.seed(42)
+
+n = 1000
+
+data = pd.DataFrame({
+    "Transaction_ID": range(1, n + 1),
+    "Customer_ID": np.random.randint(1, 101, n),
+    "Product_ID": np.random.randint(1, 21, n),
+    "Store_ID": np.random.randint(1, 6, n),
+    "Date": pd.date_range("2026-01-01", periods=n, freq="D"),
+    "Quantity": np.random.randint(1, 6, n),
+    "Unit_Price": np.random.randint(100, 5000, n),
+    "Discount": np.random.randint(0, 30, n)
+})
+
+data["Sales_Amount"] = (
+    data["Quantity"] *
+    data["Unit_Price"] *
+    (1 - data["Discount"] / 100)
+)
+
+data["Profit"] = data["Sales_Amount"] * 0.20
+
+print("\nRETAIL SALES DATA")
+print(data.head())
+
+
+# ============================================================
+# 2. CREATE DIMENSION TABLES
+# ============================================================
+
+# Date Dimension
+dim_date = pd.DataFrame({
+    "Date_Key": range(1, len(data) + 1),
+    "Date": data["Date"],
+})
+
+dim_date["Day"] = dim_date["Date"].dt.day
+dim_date["Month"] = dim_date["Date"].dt.month
+dim_date["Quarter"] = dim_date["Date"].dt.quarter
+dim_date["Year"] = dim_date["Date"].dt.year
+dim_date["Weekday"] = dim_date["Date"].dt.day_name()
+
+
+# Customer Dimension
+customers = pd.DataFrame({
+    "Customer_Key": range(1, 101),
+    "Customer_ID": range(1, 101),
+    "Age": np.random.randint(18, 65, 100),
+    "Gender": np.random.choice(
+        ["Male", "Female"], 100
+    ),
+    "City": np.random.choice(
+        ["Chennai", "Bangalore", "Hyderabad",
+         "Mumbai", "Delhi"], 100
+    ),
+    "Region": np.random.choice(
+        ["South", "North", "East", "West"], 100
+    )
+})
+
+dim_customer = customers
+
+
+# Product Dimension
+dim_product = pd.DataFrame({
+    "Product_Key": range(1, 21),
+    "Product_ID": range(1, 21),
+    "Product_Name": [
+        "Laptop", "Mobile", "Tablet", "Headphones",
+        "Keyboard", "Mouse", "Monitor", "Printer",
+        "Camera", "Speaker", "Shirt", "Jeans",
+        "Shoes", "Watch", "Bag", "Bottle",
+        "Book", "Pen", "Chair", "Desk"
+    ],
+    "Category": [
+        "Electronics", "Electronics", "Electronics",
+        "Electronics", "Electronics", "Electronics",
+        "Electronics", "Electronics", "Electronics",
+        "Electronics", "Clothing", "Clothing",
+        "Clothing", "Accessories", "Accessories",
+        "Accessories", "Stationery", "Stationery",
+        "Furniture", "Furniture"
+    ]
+})
+
+
+# Store Dimension
+dim_store = pd.DataFrame({
+    "Store_Key": range(1, 6),
+    "Store_ID": range(1, 6),
+    "Store_Name": [
+        "Chennai Store",
+        "Bangalore Store",
+        "Hyderabad Store",
+        "Mumbai Store",
+        "Delhi Store"
+    ],
+    "Region": [
+        "South", "South", "South", "West", "North"
+    ]
+})
+
+
+# ============================================================
+# 3. CREATE FACT SALES TABLE
+# ============================================================
+
+fact_sales = data.copy()
+
+fact_sales["Date_Key"] = range(1, len(data) + 1)
+fact_sales["Customer_Key"] = fact_sales["Customer_ID"]
+fact_sales["Product_Key"] = fact_sales["Product_ID"]
+fact_sales["Store_Key"] = fact_sales["Store_ID"]
+
+fact_sales = fact_sales[
+    [
+        "Transaction_ID",
+        "Date_Key",
+        "Customer_Key",
+        "Product_Key",
+        "Store_Key",
+        "Quantity",
+        "Unit_Price",
+        "Sales_Amount",
+        "Discount",
+        "Profit"
+    ]
+]
+
+print("\nFACT SALES TABLE")
+print(fact_sales.head())
+
+
+# ============================================================
+# 4. OLAP OPERATIONS
+# ============================================================
+
+# Combine fact table with dimensions
+
+sales_analysis = fact_sales.merge(
+    dim_product,
+    on="Product_Key"
+)
+
+sales_analysis = sales_analysis.merge(
+    dim_store,
+    on="Store_Key"
+)
+
+sales_analysis = sales_analysis.merge(
+    dim_date[["Date_Key", "Month", "Quarter", "Year"]],
+    on="Date_Key"
+)
+
+
+# ----------------------------
+# ROLL-UP
+# Year -> Quarter -> Month
+# ----------------------------
+
+monthly_sales = sales_analysis.groupby(
+    ["Year", "Month"]
+)["Sales_Amount"].sum().reset_index()
+
+print("\nMONTHLY SALES")
+print(monthly_sales)
+
+
+# ----------------------------
+# DRILL-DOWN
+# ----------------------------
+
+product_sales = sales_analysis.groupby(
+    ["Category", "Product_Name"]
+)["Sales_Amount"].sum().reset_index()
+
+print("\nPRODUCT SALES")
+print(product_sales.sort_values(
+    "Sales_Amount",
+    ascending=False
+).head(10))
+
+
+# ----------------------------
+# SLICE
+# ----------------------------
+
+year_2026 = sales_analysis[
+    sales_analysis["Year"] == 2026
+]
+
+print("\nSLICE: SALES FOR 2026")
+print(year_2026.head())
+
+
+# ----------------------------
+# DICE
+# ----------------------------
+
+dice_data = sales_analysis[
+    (sales_analysis["Region"] == "South") &
+    (sales_analysis["Category"] == "Electronics")
+]
+
+print("\nDICE: SOUTH + ELECTRONICS")
+print(dice_data.head())
+
+
+# ----------------------------
+# PIVOT
+# ----------------------------
+
+pivot_table = pd.pivot_table(
+    sales_analysis,
+    values="Sales_Amount",
+    index="Region",
+    columns="Month",
+    aggfunc="sum"
+)
+
+print("\nPIVOT TABLE")
+print(pivot_table)
+
+
+# ============================================================
+# 5. CUSTOMER DATASET
+# ============================================================
+
+customer_sales = fact_sales.groupby(
+    "Customer_Key"
+).agg(
+    Total_Spending=("Sales_Amount", "sum"),
+    Purchase_Frequency=("Transaction_ID", "count"),
+    Average_Order_Value=("Sales_Amount", "mean"),
+    Total_Quantity=("Quantity", "sum")
+).reset_index()
+
+customer_data = customer_sales.merge(
+    dim_customer,
+    on="Customer_Key"
+)
+
+print("\nCUSTOMER ANALYSIS DATA")
+print(customer_data.head())
+
+
+# ============================================================
+# 6. CUSTOMER CLASSIFICATION
+# ============================================================
+
+# Create customer classes based on spending
+
+customer_data["Customer_Type"] = pd.qcut(
+    customer_data["Total_Spending"],
+    q=3,
+    labels=[
+        "Low-Value",
+        "Medium-Value",
+        "High-Value"
+    ]
+)
+
+features = [
+    "Total_Spending",
+    "Purchase_Frequency",
+    "Average_Order_Value",
+    "Total_Quantity",
+    "Age"
+]
+
+X = customer_data[features]
+
+y = customer_data["Customer_Type"]
+
+
+# Encode target
+
+label_encoder = LabelEncoder()
+
+y_encoded = label_encoder.fit_transform(y)
+
+
+# Train/Test Split
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X,
+    y_encoded,
+    test_size=0.20,
+    random_state=42,
+    stratify=y_encoded
+)
+
+
+# Scaling
+
+scaler = StandardScaler()
+
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+
+# ============================================================
+# 7. DECISION TREE
+# ============================================================
+
+dt = DecisionTreeClassifier(
+    random_state=42
+)
+
+dt.fit(X_train, y_train)
+
+dt_pred = dt.predict(X_test)
+
+print("\nDECISION TREE")
+print("Accuracy:",
+      accuracy_score(y_test, dt_pred))
+
+print("Precision:",
+      precision_score(
+          y_test,
+          dt_pred,
+          average="weighted"
+      ))
+
+print("Recall:",
+      recall_score(
+          y_test,
+          dt_pred,
+          average="weighted"
+      ))
+
+print("F1 Score:",
+      f1_score(
+          y_test,
+          dt_pred,
+          average="weighted"
+      ))
+
+
+# ============================================================
+# 8. NAIVE BAYES
+# ============================================================
+
+nb = GaussianNB()
+
+nb.fit(
+    X_train_scaled,
+    y_train
+)
+
+nb_pred = nb.predict(
+    X_test_scaled
+)
+
+print("\nNAIVE BAYES")
+print("Accuracy:",
+      accuracy_score(y_test, nb_pred))
+
+print("Precision:",
+      precision_score(
+          y_test,
+          nb_pred,
+          average="weighted"
+      ))
+
+print("Recall:",
+      recall_score(
+          y_test,
+          nb_pred,
+          average="weighted"
+      ))
+
+print("F1 Score:",
+      f1_score(
+          y_test,
+          nb_pred,
+          average="weighted"
+      ))
+
+
+# ============================================================
+# 9. SUPPORT VECTOR MACHINE
+# ============================================================
+
+svm = SVC(
+    kernel="rbf"
+)
+
+svm.fit(
+    X_train_scaled,
+    y_train
+)
+
+svm_pred = svm.predict(
+    X_test_scaled
+)
+
+print("\nSUPPORT VECTOR MACHINE")
+print("Accuracy:",
+      accuracy_score(y_test, svm_pred))
+
+print("Precision:",
+      precision_score(
+          y_test,
+          svm_pred,
+          average="weighted"
+      ))
+
+print("Recall:",
+      recall_score(
+          y_test,
+          svm_pred,
+          average="weighted"
+      ))
+
+print("F1 Score:",
+      f1_score(
+          y_test,
+          svm_pred,
+          average="weighted"
+      ))
+
+
+# ============================================================
+# 10. CONFUSION MATRIX
+# ============================================================
+
+cm = confusion_matrix(
+    y_test,
+    svm_pred
+)
+
+print("\nCONFUSION MATRIX")
+print(cm)
+
+
+# ============================================================
+# 11. CUSTOMER CLUSTERING USING K-MEANS
+# ============================================================
+
+cluster_features = [
+    "Total_Spending",
+    "Purchase_Frequency",
+    "Average_Order_Value"
+]
+
+cluster_data = customer_data[
+    cluster_features
+]
+
+cluster_scaler = StandardScaler()
+
+cluster_scaled = cluster_scaler.fit_transform(
+    cluster_data
+)
+
+
+kmeans = KMeans(
+    n_clusters=3,
+    random_state=42,
+    n_init=10
+)
+
+customer_data["Cluster"] = kmeans.fit_predict(
+    cluster_scaled
+)
+
+print("\nCUSTOMER CLUSTERS")
+print(
+    customer_data[
+        [
+            "Customer_Key",
+            "Total_Spending",
+            "Purchase_Frequency",
+            "Cluster"
+        ]
+    ].head(20)
+)
+
+
+# Cluster summary
+
+cluster_summary = customer_data.groupby(
+    "Cluster"
+)[cluster_features].mean()
+
+print("\nCLUSTER SUMMARY")
+print(cluster_summary)
+
+
+# ============================================================
+# 12. CLUSTER VISUALIZATION
+# ============================================================
+
+plt.figure(figsize=(8, 6))
+
+plt.scatter(
+    customer_data["Total_Spending"],
+    customer_data["Purchase_Frequency"],
+    c=customer_data["Cluster"]
+)
+
+plt.xlabel("Total Spending")
+plt.ylabel("Purchase Frequency")
+plt.title("Customer Clustering")
+
+plt.show()
+
+
+# ============================================================
+# 13. FREQUENT PATTERN MINING
+# ============================================================
+
+# Create transaction-product matrix
+
+basket = data.pivot_table(
+    index="Transaction_ID",
+    columns="Product_ID",
+    values="Quantity",
+    aggfunc="sum",
+    fill_value=0
+)
+
+# Convert quantity into 0/1
+
+basket = basket.applymap(
+    lambda x: 1 if x > 0 else 0
+)
+
+
+# Generate frequent itemsets
+
+frequent_itemsets = apriori(
+    basket,
+    min_support=0.05,
+    use_colnames=True
+)
+
+print("\nFREQUENT ITEMSETS")
+print(frequent_itemsets)
+
+
+# Generate association rules
+
+rules = association_rules(
+    frequent_itemsets,
+    metric="confidence",
+    min_threshold=0.3
+)
+
+print("\nASSOCIATION RULES")
+
+if len(rules) > 0:
+
+    print(
+        rules[
+            [
+                "antecedents",
+                "consequents",
+                "support",
+                "confidence",
+                "lift"
+            ]
+        ]
+    )
+
+else:
+
+    print("No strong association rules found.")
+
+
+# ============================================================
+# 14. WEB MINING
+# ============================================================
+
+# Create sample web log data
+
+web_data = pd.DataFrame({
+    "Session_ID": range(1, 501),
+
+    "Customer_ID": np.random.randint(
+        1, 101, 500
+    ),
+
+    "Page": np.random.choice(
+        [
+            "Home",
+            "Electronics",
+            "Clothing",
+            "Offers",
+            "Product",
+            "Cart",
+            "Checkout"
+        ],
+        500
+    ),
+
+    "Duration": np.random.randint(
+        10, 600, 500
+    ),
+
+    "Device": np.random.choice(
+        [
+            "Mobile",
+            "Desktop",
+            "Tablet"
+        ],
+        500
+    )
+})
+
+
+print("\nWEB LOG DATA")
+print(web_data.head())
+
+
+# ============================================================
+# 15. WEB USAGE ANALYSIS
+# ============================================================
+
+page_visits = web_data.groupby(
+    "Page"
+).size().reset_index(
+    name="Visits"
+)
+
+page_visits = page_visits.sort_values(
+    "Visits",
+    ascending=False
+)
+
+print("\nPOPULAR WEB PAGES")
+print(page_visits)
+
+
+# Average session duration
+
+avg_duration = web_data.groupby(
+    "Page"
+)["Duration"].mean()
+
+print("\nAVERAGE PAGE DURATION")
+print(avg_duration)
+
+
+# Device analysis
+
+device_usage = web_data.groupby(
+    "Device"
+).size()
+
+print("\nDEVICE USAGE")
+print(device_usage)
+
+
+# ============================================================
+# 16. WEB MINING VISUALIZATION
+# ============================================================
+
+plt.figure(figsize=(8, 5))
+
+plt.bar(
+    page_visits["Page"],
+    page_visits["Visits"]
+)
+
+plt.xlabel("Web Page")
+plt.ylabel("Number of Visits")
+plt.title("Web Page Usage Analysis")
+
+plt.xticks(rotation=45)
+
+plt.tight_layout()
+
+plt.show()
+
+
+# ============================================================
+# 17. SAVE RESULTS
+# ============================================================
+
+fact_sales.to_csv(
+    "Fact_Sales.csv",
+    index=False
+)
+
+dim_customer.to_csv(
+    "Dim_Customer.csv",
+    index=False
+)
+
+dim_product.to_csv(
+    "Dim_Product.csv",
+    index=False
+)
+
+dim_store.to_csv(
+    "Dim_Store.csv",
+    index=False
+)
+
+dim_date.to_csv(
+    "Dim_Date.csv",
+    index=False
+)
+
+customer_data.to_csv(
+    "Customer_Analysis.csv",
+    index=False
+)
+
+frequent_itemsets.to_csv(
+    "Frequent_Itemsets.csv",
+    index=False
+)
+
+if len(rules) > 0:
+    rules.to_csv(
+        "Association_Rules.csv",
+        index=False
+    )
+
+web_data.to_csv(
+    "Web_Mining_Data.csv",
+    index=False
+)
+
+
+print("\n======================================")
+print("RETAIL BI SYSTEM IMPLEMENTATION DONE")
+print("======================================")
