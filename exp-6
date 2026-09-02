@@ -1,0 +1,37 @@
+# R Program to calculate Mean, Median, Variance and Standard Deviation
+
+# Marks of 10 students
+name<-c('A','B','C','D','E','F','G','H','I','J','K')
+marks <- c(85, 72, 90, 65, 78, 88, 95, 70, 82, 75,78)
+result<-data.frame(name,marks)
+
+# Calculate Mean
+mean_marks <- mean(marks)
+
+# Calculate Median
+median_marks <- median(marks)
+
+# Calculate Variance
+variance_marks <- var(marks)
+
+# Calculate Standard Deviation
+sd_marks <- sd(marks)
+freq<-table(marks)
+max_freq<-max(freq)
+if(max_freq==1)
+{
+  print(paste("No Mode"))
+}else{
+  mode_marks <- names(freq)[freq == max_freq]
+}
+
+# Display results
+print("Marks of 10 Students:")
+print(marks)
+
+print(paste("Mean =", mean_marks))
+print(paste("Median =", median_marks))
+print(paste("Variance =", variance_marks))
+print(paste("Standard Deviation =", sd_marks))
+print(paste("Mode=",mode_marks))
+print(summary(result))
