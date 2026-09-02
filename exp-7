@@ -1,0 +1,23 @@
+# Create student names
+names <- c("Siri", "Mahi", "Chiru")
+
+# Create ages
+age <- c(23, 24, 25)
+
+# Create marks
+marks <- c(88, 78, 25)
+
+# Create data frame
+df <- data.frame(names, age, marks)
+
+# Display the data
+print(df)
+
+# Find summary of age
+print(summary(df$age))
+
+# Find summary of marks
+print(summary(df$marks))
+
+# Save data frame as CSV file
+write.csv(df, "datafr.csv", row.names = FALSE)
