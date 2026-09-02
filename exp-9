@@ -1,0 +1,36 @@
+# Create student names
+names <- c("Siri", "Mahi", "Chiru")
+
+# Create age and marks
+age <- c(23, 24, 25)
+marks <- c(88, 78, 25)
+
+# Create data frame
+df <- data.frame(names, age, marks)
+
+# Calculate Mean
+mean_age <- mean(df$age)
+
+# Calculate Median
+median_age <- median(df$age)
+
+# Calculate Variance
+variance_age <- var(df$age)
+
+# Calculate Standard Deviation
+sd_age <- sd(df$age)
+
+# Calculate IQR
+iqr_age <- IQR(df$age)
+
+# Display results
+print(df)
+
+print(paste("Mean =", mean_age))
+print(paste("Median =", median_age))
+print(paste("Variance =", variance_age))
+print(paste("Standard Deviation =", sd_age))
+print(paste("IQR =", iqr_age))
+
+# Save data as CSV file
+write.csv(df, "datafr.csv", row.names = FALSE)
